@@ -7,6 +7,8 @@ const bio = 'Father of three boys. From Austin, Texas but living in Shanghai.';
 // Type definitions (schema)
 const typeDefs = `
   type Query {
+    add(a: Float!, b: Float!): Float!
+    greeting(name: String, position: String): String!
     me: User!,
     post: Post!
   }
@@ -29,6 +31,17 @@ const typeDefs = `
 // Resolvers (functions that run)
 const resolvers = {
   Query: {
+    add(obj, args, context, info) {
+      // return `The sum of the two numbers is ${args.a + args.b}`;
+      return args.a + args.b;
+    },
+    greeting(obj, args, context, info) {
+      if (args.name && args.position) {
+        return `Ni hao, ${args.name}! You are my favorite ${args.position}!`;
+      } else {
+        return 'Hello!';
+      }
+    },
     me: () => {
       return {
         id: '123098',
