@@ -7,8 +7,9 @@ const bio = 'Father of three boys. From Austin, Texas but living in Shanghai.';
 // Type definitions (schema)
 const typeDefs = `
   type Query {
-    add(a: Float!, b: Float!): Float!
+    add(numbers: [Float!]!): Float!
     greeting(name: String, position: String): String!
+    grades: [Int!]!
     me: User!,
     post: Post!
   }
@@ -32,8 +33,10 @@ const typeDefs = `
 const resolvers = {
   Query: {
     add(obj, args, context, info) {
-      // return `The sum of the two numbers is ${args.a + args.b}`;
-      return args.a + args.b;
+      return args.numbers.reduce((a, b) => a + b, 0);
+    },
+    grades: (obj, args, context, info) => {
+      return [80, 85, 82, 94, 88];
     },
     greeting(obj, args, context, info) {
       if (args.name && args.position) {
