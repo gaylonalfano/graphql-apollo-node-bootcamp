@@ -4,12 +4,36 @@ const name = 'Gaylon Alfano';
 const location = 'Shanghai, China';
 const bio = 'Father of three boys. From Austin, Texas but living in Shanghai.';
 
+// Demo User data
+const users = [
+  {
+    id: '1',
+    name: 'Gaylon',
+    email: 'gaylon@gmail.com',
+    age: 38
+  },
+  {
+    id: '2',
+    name: 'Archie',
+    email: 'archie@gmail.com',
+    age: 5
+  },
+  {
+    id: '3',
+    name: 'Aaron',
+    email: 'aaron@gmail.com'
+  },
+  {
+    id: '4',
+    name: 'Mike',
+    email: 'mike@gmail.com'
+  }
+];
+
 // Type definitions (schema)
 const typeDefs = `
   type Query {
-    add(numbers: [Float!]!): Float!
-    greeting(name: String, position: String): String!
-    grades: [Int!]!
+    users(query: String): [User!]!
     me: User!,
     post: Post!
   }
@@ -32,17 +56,11 @@ const typeDefs = `
 // Resolvers (functions that run)
 const resolvers = {
   Query: {
-    add(obj, args, context, info) {
-      return args.numbers.reduce((a, b) => a + b, 0);
-    },
-    grades: (obj, args, context, info) => {
-      return [80, 85, 82, 94, 88];
-    },
-    greeting(obj, args, context, info) {
-      if (args.name && args.position) {
-        return `Ni hao, ${args.name}! You are my favorite ${args.position}!`;
+    users(obj, args, context, info) {
+      if (args.query) {
+        return args.filter(e => e.contains(args.query));
       } else {
-        return 'Hello!';
+        return users;
       }
     },
     me: () => {
