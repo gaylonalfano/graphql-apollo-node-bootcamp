@@ -36,25 +36,29 @@ const posts = [
     id: '1',
     title: 'Post 1 Apples',
     body: 'Apples',
-    published: true
+    published: true,
+    author: '1'
   },
   {
     id: '2',
     title: 'Post 2 Bananas',
     body: 'Bananas are a fruit.',
-    published: false
+    published: false,
+    author: '2'
   },
   {
     id: '3',
     title: 'Post 3 Oranges',
     body: 'Oranges are a fruit.',
-    published: true
+    published: true,
+    author: '4'
   },
   {
     id: '4',
     title: 'Post 4 Strawberries',
     body: 'Strawberries are my favorite.',
-    published: true
+    published: true,
+    author: '2'
   }
 ];
 
@@ -78,7 +82,8 @@ const typeDefs = `
     id: ID!,
     title: String!,
     body: String!,
-    published: Boolean!
+    published: Boolean!,
+    author: User!
   }
 `;
 
@@ -144,6 +149,11 @@ const resolvers = {
         const isBodyMatch = post.body.toLowerCase().includes(args.query);
         return isTitleMatch || isBodyMatch;
       });
+    }
+  },
+  Post: {
+    author(obj, args, context, info) {
+      return users.find(user => user.id === obj.author);
     }
   }
 };
