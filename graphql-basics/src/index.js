@@ -1,4 +1,5 @@
 import { GraphQLServer } from 'graphql-yoga';
+import uuidv4 from 'uuid/v4';
 
 const name = 'Gaylon Alfano';
 const location = 'Shanghai, China';
@@ -108,6 +109,12 @@ const typeDefs = `
     comments: [Comment!]!
   }
 
+  type Mutation {
+    createUser(name: String!, email: String!, age: Int): User!
+    createPost(title: String!, body: String!, published: Boolean!, author: ID!): Post!
+    createComment(text: String!, author: ID!, post: ID!): Comment!
+  }
+
   type User {
     id: ID!,
     name: String!,
@@ -201,6 +208,71 @@ const resolvers = {
       return comments;
     }
   },
+  Mutation: {
+    createUser(obj, args, context, info) {
+      // Check whether email is unique
+      const emailTaken = users.some(user => user.email === args.email);
+      if (emailTaken) {
+        throw new Error('Email taken.');
+      }
+
+      const user = {
+        id: uuidv4(),
+        ...args
+      };
+
+      // Save/add the new user to users array
+      users.push(user);
+
+      // Return the user object so the client can get its values
+      return user;
+    },
+    createPost(obj, args, context, info) {
+      // Check if existing user
+      const userExists = users.some(user => user.id === args.author);
+
+      // Throw error if not a user (later could redirect to createUser maybe)
+      if (!userExists) {
+        throw new Error('Not an existing user.');
+      }
+
+      // Create a post object with the details
+      const post = {
+        id: uuidv4(),
+        ...args
+      };
+
+      // Add/save post object to posts data array
+      posts.push(post);
+
+      // Return Post object per definition
+      return post;
+    },
+    createComment(obj, args, context, info) {
+      // Confirm user exists and post exists, else throw error.
+      const userExists = users.some(user => user.id === args.author);
+      const postExists = posts.some(
+        post => post.id === args.post && post.published
+      );
+
+      if (!userExists || !postExists) {
+        throw new Error(
+          `Error. Does user exist? ${userExists} Does post exist? ${postExists}`
+        );
+      }
+      // If they do exist, create the comment and return it
+      const comment = {
+        id: uuidv4(),
+        ...args
+      };
+
+      // Save/add comment to comments array
+      comments.push(comment);
+
+      // Return comment
+      return comment;
+    }
+  },
   Post: {
     author(obj, args, context, info) {
       return users.find(user => user.id === obj.author);
@@ -240,8 +312,3 @@ const server = new GraphQLServer({
 server.start(() => {
   console.log(`Hey ${name}, the server is up and running!`);
 });
-
-// 1. Set up "Comment" type with id and text fields. Both non-nullable.
-// 2. Set up a "comments" array with four comments.
-// 3. Set up a "comments" query with a resolver that returns all the comments.
-// 4. Run a query to get all four comments with both id and text fields.
