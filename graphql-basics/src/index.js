@@ -6,7 +6,7 @@ const location = 'Shanghai, China';
 const bio = 'Father of three boys. From Austin, Texas but living in Shanghai.';
 
 // Demo User data. Later this data comes from DB.
-const users = [
+let users = [
   {
     id: '1',
     name: 'Gaylon',
@@ -35,7 +35,7 @@ const users = [
 ];
 
 // Demo Post data. Later this would
-const posts = [
+let posts = [
   {
     id: '1',
     title: 'Post 1 Apples',
@@ -71,7 +71,7 @@ const posts = [
 ];
 
 // Dummy Comments data
-const comments = [
+let comments = [
   {
     id: '101',
     text: 'Today was a great day. I really liked this post!',
@@ -110,9 +110,30 @@ const typeDefs = `
   }
 
   type Mutation {
-    createUser(name: String!, email: String!, age: Int): User!
-    createPost(title: String!, body: String!, published: Boolean!, author: ID!): Post!
-    createComment(text: String!, author: ID!, post: ID!): Comment!
+    createUser(data: CreateUserInput!): User!
+    deleteUser(id: ID!): User!
+    createPost(data: CreatePostInput!): Post!
+    deletePost(id: ID!): Post!
+    createComment(data: CreateCommentInput!): Comment!
+  }
+
+  input CreateUserInput {
+    name: String!,
+    email: String!,
+    age: Int
+  }
+
+  input CreatePostInput {
+    title: String!,
+    body: String!,
+    published: Boolean!,
+    author: ID!
+  }
+
+  input CreateCommentInput {
+    text: String!,
+    author: ID!,
+    post: ID!
   }
 
   type User {
@@ -173,36 +194,15 @@ const resolvers = {
         published: true
       };
     },
-    // posts: (obj, args, context, info) => {
-    //   if (!args.query) {
-    //     return posts;
-    //   }
-    //   return posts.filter(
-    //     post =>
-    //       post.title.toLowerCase().includes(args.query.toLowerCase()) ||
-    //       post.body.toLowerCase().includes(args.query)
-    //   );
-    // },
-    // posts(obj, args, context, info) {
-    //   if (!args.query) {
-    //     return posts;
-    //   }
-    //   return posts.filter(
-    //     post =>
-    //       post.title.toLowerCase().includes(args.query) ||
-    //       post.body.toLowerCase().includes(args.query)
-    //   );
-    // },
-    // Instructor's
     posts(obj, args, context, info) {
       if (!args.query) {
         return posts;
       }
-      return posts.filter(post => {
-        const isTitleMatch = post.title.toLowerCase().includes(args.query);
-        const isBodyMatch = post.body.toLowerCase().includes(args.query);
-        return isTitleMatch || isBodyMatch;
-      });
+      return posts.filter(
+        post =>
+          post.title.toLowerCase().includes(args.query) ||
+          post.body.toLowerCase().includes(args.query)
+      );
     },
     comments(obj, args, context, info) {
       return comments;
@@ -211,14 +211,14 @@ const resolvers = {
   Mutation: {
     createUser(obj, args, context, info) {
       // Check whether email is unique
-      const emailTaken = users.some(user => user.email === args.email);
+      const emailTaken = users.some(user => user.email === args.data.email);
       if (emailTaken) {
         throw new Error('Email taken.');
       }
 
       const user = {
         id: uuidv4(),
-        ...args
+        ...args.data
       };
 
       // Save/add the new user to users array
@@ -227,9 +227,42 @@ const resolvers = {
       // Return the user object so the client can get its values
       return user;
     },
+    deleteUser(obj, args, context, info) {
+      // Find the user's index
+      const userIndex = users.findIndex(user => user.id === args.id);
+
+      // Check if we didn't find a match
+      if (userIndex === -1) {
+        throw new Error('User not found.');
+      }
+
+      // Delete the user and store deletedUsers so we can return it
+      const deletedUsers = users.splice(userIndex, 1);
+
+      // Filter out the posts that belong to this user and re-save to posts
+      posts = posts.filter(post => {
+        // Check if post was created by deleted user
+        const match = post.author === args.id;
+
+        // If post is match, then delete all its comments.
+        if (match) {
+          comments = comments.filter(comment => comment.post !== post.id);
+        }
+
+        // Return only posts that are NOT the user's
+        return !match;
+      });
+
+      // Remove all comments made by the deleted user from other posts
+      // Gotta find comment.author
+      comments = comments.filter(comment => comment.author !== args.id);
+
+      // Return the deleted user object per our type definition
+      return deletedUsers[0];
+    },
     createPost(obj, args, context, info) {
       // Check if existing user
-      const userExists = users.some(user => user.id === args.author);
+      const userExists = users.some(user => user.id === args.data.author);
 
       // Throw error if not a user (later could redirect to createUser maybe)
       if (!userExists) {
@@ -239,7 +272,7 @@ const resolvers = {
       // Create a post object with the details
       const post = {
         id: uuidv4(),
-        ...args
+        ...args.data
       };
 
       // Add/save post object to posts data array
@@ -248,11 +281,32 @@ const resolvers = {
       // Return Post object per definition
       return post;
     },
+    deletePost(obj, args, context, info) {
+      // Store the post's index
+      const postIndex = posts.findIndex(post => post.id === args.id);
+
+      // Check if post doesn't exist and throw error
+      if (postIndex === -1) {
+        throw new Error('Post not found.');
+      }
+
+      // Remove and return the deleted post
+      const deletedPost = posts.splice(postIndex, 1);
+
+      // Update posts array
+      posts = posts.filter(post => post.id !== args.id);
+
+      // Remove comments that were on the deleted post
+      comments = comments.filter(comment => comment.post !== args.id);
+
+      // return the deleted Post object
+      return deletedPost[0];
+    },
     createComment(obj, args, context, info) {
       // Confirm user exists and post exists, else throw error.
-      const userExists = users.some(user => user.id === args.author);
+      const userExists = users.some(user => user.id === args.data.author);
       const postExists = posts.some(
-        post => post.id === args.post && post.published
+        post => post.id === args.data.post && post.published
       );
 
       if (!userExists || !postExists) {
@@ -263,7 +317,7 @@ const resolvers = {
       // If they do exist, create the comment and return it
       const comment = {
         id: uuidv4(),
-        ...args
+        ...args.data
       };
 
       // Save/add comment to comments array
@@ -312,3 +366,12 @@ const server = new GraphQLServer({
 server.start(() => {
   console.log(`Hey ${name}, the server is up and running!`);
 });
+
+// Goal: Set up a mutation for deleting a post
+
+// 1. Define a mutation. It should take the post id. It should return the deleted post.
+// 2. Define the resolver for the mutation
+// 	- Check if the post exists, else throw error
+// 	- Remove and return the post
+// 	- Remove all comments belonging to that post
+// 3. Test your work by running query to delete a post. Verify post/comments are removed.
