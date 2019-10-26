@@ -1,4 +1,5 @@
 import uuidv4 from 'uuid/v4';
+import { type } from 'os';
 
 const Mutation = {
   createUser(obj, args, { db }, info) {
@@ -52,8 +53,45 @@ const Mutation = {
     // Return the deleted user object per our type definition
     return deletedUsers[0];
   },
-  updateUser(obj, args, { db }, info) {},
+  updateUser(obj, args, { db }, info) {
+    // Deconstruct our args
+    const { id, data } = args;
+    // Find the user object
+    const user = db.users.find(user => user.id === id);
 
+    // Throw error if we don't find user
+    if (!user) {
+      throw new Error('User not found.');
+    }
+    // Check which fields (if any) are updated. Starting w/ email.
+    if (typeof data.email === 'string') {
+      const emailTaken = db.users.some(user => user.email === data.email);
+      const currentUserEmailSameAsUpdate =
+        user.email === data.email ? true : false;
+
+      if (emailTaken) {
+        if (!currentUserEmailSameAsUpdate) {
+          throw new Error(`Email ${data.email} already exists.`);
+        }
+      }
+      // Email not taken. Update email field.
+      user.email = data.email;
+    }
+    // Check name field argument
+    if (typeof data.name === 'string') {
+      user.name = data.name;
+    }
+    // Check age. Remember age is optional (can be null).
+    if (typeof data.age !== 'undefined') {
+      if (typeof data.age === 'number' && data.age <= 0) {
+        throw new Error('Age cannot be negative.');
+      }
+      user.age = data.age;
+      console.log(typeof data.age);
+    }
+
+    return user;
+  },
   createPost(obj, args, { db }, info) {
     // Check if existing user
     const userExists = db.users.some(user => user.id === args.data.author);
@@ -75,6 +113,33 @@ const Mutation = {
     // Return Post object per definition
     return post;
   },
+  updatePost(obj, args, { db }, info) {
+    // Deconstruct our args
+    const { id, data } = args;
+    // Find and store the existing/matching post
+    const post = db.posts.find(post => post.id === id);
+
+    // Throw error if post id not found
+    if (!post) {
+      throw new Error('Post not found.');
+    }
+    // Post found. Time to update fields.
+    // Must have a title (can't be empty string)
+    if (data.title) {
+      post.title = data.title;
+    }
+    // Body can be string or empty string
+    if (typeof data.body === 'string') {
+      post.body = data.body;
+    }
+    // Published either true or false.
+    if (typeof data.published === 'boolean') {
+      post.published = data.published;
+    }
+    // Return updated post object
+    return post;
+  },
+
   deletePost(obj, args, { db }, info) {
     // Store the post's index
     const postIndex = db.posts.findIndex(post => post.id === args.id);
@@ -118,6 +183,24 @@ const Mutation = {
     db.comments.push(comment);
 
     // Return comment
+    return comment;
+  },
+  updateComment(obj, args, { db }, info) {
+    // Deconstruct the args
+    const { id, data } = args;
+    // Find the comment
+    const comment = db.comments.find(comment => comment.id === id);
+
+    // Throw error if not found
+    if (!comment) {
+      throw new Error('Comment not found.');
+    }
+
+    // Check the args passed ('text') and update
+    if (typeof data.text === 'string') {
+      comment.text = data.text;
+    }
+    // Return updated comment
     return comment;
   },
   deleteComment(obj, args, { db }, info) {
