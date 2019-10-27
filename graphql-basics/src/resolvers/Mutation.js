@@ -92,7 +92,7 @@ const Mutation = {
 
     return user;
   },
-  createPost(obj, args, { db }, info) {
+  createPost(obj, args, { db, pubsub }, info) {
     // Check if existing user
     const userExists = db.users.some(user => user.id === args.data.author);
 
@@ -109,7 +109,12 @@ const Mutation = {
 
     // Add/save post object to posts data array
     db.posts.push(post);
-
+    // Publish post object to subscription channel if post is published
+    if (post.published) {
+      pubsub.publish('post', {
+        post
+      });
+    }
     // Return Post object per definition
     return post;
   },
@@ -161,7 +166,7 @@ const Mutation = {
     // return the deleted Post object
     return deletedPosts[0];
   },
-  createComment(obj, args, { db }, info) {
+  createComment(obj, args, { db, pubsub }, info) {
     // Confirm user exists and post exists, else throw error.
     const userExists = db.users.some(user => user.id === args.data.author);
     const postExists = db.posts.some(
@@ -181,6 +186,12 @@ const Mutation = {
 
     // Save/add comment to comments array
     db.comments.push(comment);
+
+    // Publish comment to subscription channel
+    pubsub.publish(`comment ${comment.post}`, {
+      // Provide a value for comment property (matches sub name, ie comment)
+      comment
+    });
 
     // Return comment
     return comment;

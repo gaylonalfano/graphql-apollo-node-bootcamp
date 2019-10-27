@@ -1,19 +1,21 @@
 const Subscription = {
-  count: {
+  comment: {
+    subscribe(obj, { postId }, { db, pubsub }, info) {
+      // Find the post if it exists.
+      const post = db.posts.find(post => post.id === postId && post.published);
+      // Throw error if not found.
+      if (!post) {
+        throw new Error('Post not found.');
+      }
+      // Make the subscription happen with asyncIterator.
+      // Channel name must include postId
+      return pubsub.asyncIterator(`comment ${postId}`);
+    }
+  },
+  post: {
     subscribe(obj, args, { pubsub }, info) {
-      // Set up our subscription
-      let count = 0;
-
-      // Increment by 1 every second
-      setInterval(() => {
-        count++;
-        pubsub.publish('count', {
-          count
-        });
-      }, 1000);
-
-      // Return asyncIterator with channel name
-      return pubsub.asyncIterator('count');
+      // Simply establish the subscription w/ asyncIterator
+      return pubsub.asyncIterator('post');
     }
   }
 };
