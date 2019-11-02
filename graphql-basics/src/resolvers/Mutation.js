@@ -112,17 +112,24 @@ const Mutation = {
     // Publish post object to subscription channel if post is published
     if (post.published) {
       pubsub.publish('post', {
-        post
+        post: {
+          mutation: 'CREATED',
+          data: post
+        }
       });
     }
     // Return Post object per definition
     return post;
   },
-  updatePost(obj, args, { db }, info) {
+  updatePost(obj, args, { db, pubsub }, info) {
     // Deconstruct our args
     const { id, data } = args;
     // Find and store the existing/matching post
     const post = db.posts.find(post => post.id === id);
+    // Copy post to capture published status before changes made
+    const originalPost = { ...post };
+    // Keep track if updates were actually made. If so, UPDATED is emitted.
+    let updated = false;
 
     // Throw error if post id not found
     if (!post) {
@@ -130,22 +137,54 @@ const Mutation = {
     }
     // Post found. Time to update fields.
     // Must have a title (can't be empty string)
-    if (data.title) {
+    if (typeof data.title) {
       post.title = data.title;
+      updated = true;
     }
     // Body can be string or empty string
     if (typeof data.body === 'string') {
       post.body = data.body;
+      updated = true;
     }
     // Published either true or false.
     if (typeof data.published === 'boolean') {
       post.published = data.published;
+
+      // Check if originally published but now un-published
+      if (originalPost.published && !post.published) {
+        // Fire deleted event
+        pubsub.publish('post', {
+          post: {
+            mutation: 'DELETED',
+            data: originalPost
+          }
+        });
+      } else if (!originalPost.published && post.published) {
+        // Fire created event
+        pubsub.publish('post', {
+          post: {
+            mutation: 'CREATED',
+            data: post
+          }
+        });
+      } else if (updated) {
+        // Check if it's just a simple update of a post
+        // Fire updated event
+        pubsub.publish('post', {
+          post: {
+            mutation: 'UPDATED',
+            data: post
+          }
+        });
+      }
     }
+
     // Return updated post object
+    // console.log(`Final: ${updated}`);
     return post;
   },
 
-  deletePost(obj, args, { db }, info) {
+  deletePost(obj, args, { db, pubsub }, info) {
     // Store the post's index
     const postIndex = db.posts.findIndex(post => post.id === args.id);
 
@@ -154,17 +193,23 @@ const Mutation = {
       throw new Error('Post not found.');
     }
 
-    // Remove and return the deleted post
-    const deletedPosts = db.posts.splice(postIndex, 1);
-
-    // Update posts array
-    db.posts = db.posts.filter(post => post.id !== args.id);
+    // Remove and return the deleted post. Originally 'deletedPosts[0]'
+    const [post] = db.posts.splice(postIndex, 1);
 
     // Remove comments that were on the deleted post
     db.comments = db.comments.filter(comment => comment.post !== args.id);
 
+    // Check if the deleted post was published
+    if (post.published) {
+      pubsub.publish('post', {
+        post: {
+          mutation: 'DELETED',
+          data: post
+        }
+      });
+    }
     // return the deleted Post object
-    return deletedPosts[0];
+    return post;
   },
   createComment(obj, args, { db, pubsub }, info) {
     // Confirm user exists and post exists, else throw error.
