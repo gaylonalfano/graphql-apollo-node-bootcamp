@@ -234,14 +234,18 @@ const Mutation = {
 
     // Publish comment to subscription channel
     pubsub.publish(`comment ${comment.post}`, {
-      // Provide a value for comment property (matches sub name, ie comment)
-      comment
+      // Provide a value for comment property.
+      // This is the new custom CommentSubscriptionPayload type
+      comment: {
+        mutation: 'CREATED',
+        data: comment
+      }
     });
 
     // Return comment
     return comment;
   },
-  updateComment(obj, args, { db }, info) {
+  updateComment(obj, args, { db, pubsub }, info) {
     // Deconstruct the args
     const { id, data } = args;
     // Find the comment
@@ -256,10 +260,20 @@ const Mutation = {
     if (typeof data.text === 'string') {
       comment.text = data.text;
     }
+
+    // Publish updated comment to subscription channel
+    // NOTE: Channel name must include postId!
+    pubsub.publish(`comment ${comment.post}`, {
+      comment: {
+        mutation: 'UPDATED',
+        data: comment
+      }
+    });
+
     // Return updated comment
     return comment;
   },
-  deleteComment(obj, args, { db }, info) {
+  deleteComment(obj, args, { db, pubsub }, info) {
     // Find the index of the comment so can return later
     const commentIndex = db.comments.findIndex(
       comment => comment.id === args.id
@@ -271,9 +285,19 @@ const Mutation = {
     }
 
     // Comment found. Time to delete and store deleted comment
-    const deletedComments = db.comments.splice(commentIndex, 1);
+    const [deletedComment] = db.comments.splice(commentIndex, 1);
 
-    return deletedComments[0];
+    // Publish deleted comment to subscription channel
+    // NOTE: Channel name must include postId!
+    pubsub.publish(`comment ${deletedComment.post}`, {
+      // This is the new custom CommentSubscriptionPayload type
+      comment: {
+        mutation: 'DELETED',
+        data: deletedComment
+      }
+    });
+
+    return deletedComment;
   }
 };
 
